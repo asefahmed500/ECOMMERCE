@@ -45,11 +45,15 @@ const WRAP = "max-width:560px;margin:0 auto;font-family:Segoe UI,Helvetica,Arial
 function layout(title: string, body: string) {
   return `<!doctype html><html><body style="margin:0;background:#FAFAF8;padding:32px 16px;">
   <div style="${WRAP}">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
-      <span style="width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#FF7A3D,#FF4D1C);display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:18px;">e</span>
-      <span style="font-size:20px;font-weight:800;color:#18181B;">ecomi</span>
-    </div>
-    <div style="background:#ffffff;border:1px solid #E4E4E7;border-radius:14px;padding:28px;">
+    <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin:0 0 20px;">
+      <tr>
+        <td style="width:38px;">
+          <span style="display:inline-block;width:34px;height:34px;line-height:34px;text-align:center;border-radius:9px;background-color:#FF4D1C;color:#ffffff;font-weight:800;font-size:19px;font-family:Segoe UI,Helvetica,Arial,sans-serif;">e</span>
+        </td>
+        <td style="padding-left:10px;font-size:20px;font-weight:800;color:#18181B;font-family:Segoe UI,Helvetica,Arial,sans-serif;">ecomi</td>
+      </tr>
+    </table>
+    <div style="background-color:#ffffff;border:1px solid #E4E4E7;border-radius:14px;padding:28px;">
       <h1 style="margin:0 0 14px;font-size:18px;color:#18181B;">${title}</h1>
       ${body}
     </div>
@@ -61,7 +65,7 @@ function layout(title: string, body: string) {
 }
 
 function button(href: string, label: string) {
-  return `<a href="${href}" style="display:inline-block;margin-top:18px;background:linear-gradient(135deg,#FF7A3D,#FF4D1C);color:#ffffff;text-decoration:none;font-weight:600;font-size:13px;padding:11px 22px;border-radius:999px;">${label}</a>`
+  return `<a href="${href}" style="display:inline-block;margin-top:18px;background-color:#FF4D1C;color:#ffffff;text-decoration:none;font-weight:600;font-size:13px;padding:11px 22px;border-radius:999px;">${label}</a>`
 }
 
 export function orderTable(items: Array<{ name: string; price: number; qty: number }>, total: number) {
