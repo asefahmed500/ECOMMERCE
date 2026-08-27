@@ -1,21 +1,37 @@
-# Next.js template
+# Econi
 
-This is a Next.js template with shadcn/ui.
+A full-stack e-commerce platform built with Next.js 16 (App Router), MongoDB/Mongoose, JWT auth, and Tailwind CSS v4.
 
-## Adding components
+## Features
 
-To add components to your app, run the following command:
+**Storefront**
+- Live product search with instant card suggestions in the navbar
+- Product catalog, categories, deals, wishlist, cart with coupon support
+- Guest checkout and member checkout with cashback rewards
+- Order tracking with status timeline, notifications bell
+
+**Admin portal (role-protected)**
+- Dashboard with net-revenue analytics and daily revenue chart
+- Full product CRUD with stock management and restock
+- Order fulfillment pipeline with cancellation, stock restore, refunds
+- Customer CRM with aggregated metrics (orders, lifetime spend, AOV, last order)
+- Coupons with max-uses and per-customer redemption limits
+- Store settings
+
+## Getting started
 
 ```bash
-npx shadcn@latest add button
+npm install
+# configure .env
+npx tsx --env-file=.env scripts/seed.ts
+npm run dev
 ```
 
-This will place the ui components in the `components` directory.
+Environment variables (`.env`):
 
-## Using components
-
-To use the components in your app, import them as follows:
-
-```tsx
-import { Button } from "@/components/ui/button";
 ```
+MONGODB_URI=<connection string>
+AUTH_SECRET=<random 64-hex secret>
+```
+
+Demo accounts after seeding: `admin@ecomi.com / admin123`, `alina.putri@ecomi.com / customer123`.
