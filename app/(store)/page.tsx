@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { ArrowRight, Headphones, Layers, ShieldCheck, Shirt, Sparkle, Star, Truck, Watch, Briefcase, Zap, RotateCcw, CreditCard, Award, Radio, Smartphone, Gem, ShoppingBag, Wind } from "lucide-react"
+import { ArrowRight, Headphones, Layers, ShieldCheck, Shirt, Sparkle, Star, Truck, Watch, Briefcase, Zap, RotateCcw, CreditCard, Award } from "lucide-react"
 import { ProductCard } from "@/components/product-card"
 import { HeroCarousel } from "@/components/hero-carousel"
 import { NewsletterSection } from "@/components/newsletter-section"
@@ -22,12 +22,12 @@ const TESTIMONIALS = [
 ]
 
 const BRANDS = [
-  { name: "Sony", desc: "Premium audio & tech", Icon: Headphones },
-  { name: "Apple", desc: "Innovation & design", Icon: Smartphone },
-  { name: "Chanel", desc: "Luxury fragrances", Icon: Gem },
-  { name: "Nike", desc: "Performance sportswear", Icon: ShoppingBag },
-  { name: "Samsung", desc: "Smart technology", Icon: Radio },
-  { name: "Dyson", desc: "Engineering excellence", Icon: Wind },
+  { name: "Sony" },
+  { name: "Apple" },
+  { name: "Chanel" },
+  { name: "Nike" },
+  { name: "Samsung" },
+  { name: "Dyson" },
 ]
 
 const FEATURES = [
@@ -195,17 +195,16 @@ export default async function HomePage() {
       <section className="mb-10 rounded-2xl border bg-card p-6 lg:p-8">
         <p className="mb-1 text-center text-[10.5px] font-semibold tracking-widest text-brand uppercase">Trusted Brands We Carry</p>
         <h2 className="mb-6 text-center text-lg font-semibold tracking-tight">Shop by Brand</h2>
-        <div className="flex flex-wrap items-center justify-center gap-6 sm:gap-10">
+        <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
           {BRANDS.map((b) => (
             <Link
               key={b.name}
               href={`/catalog?q=${encodeURIComponent(b.name)}`}
-              className="group flex flex-col items-center gap-2 opacity-50 transition hover:opacity-100"
+              className="group rounded-xl border bg-card px-5 py-2.5 transition-all duration-300 hover:-translate-y-1 hover:border-brand/50 hover:shadow-card-hover"
             >
-              <div className="flex size-16 items-center justify-center rounded-full border bg-white shadow-sm transition group-hover:shadow-md group-hover:scale-110">
-                <b.Icon className="size-6 text-foreground" />
-              </div>
-              <span className="text-[11px] font-medium text-muted-foreground group-hover:text-foreground">{b.name}</span>
+              <span className="text-[13px] font-semibold tracking-wide text-foreground transition-colors duration-300 group-hover:text-brand-deep">
+                {b.name}
+              </span>
             </Link>
           ))}
         </div>
@@ -217,15 +216,15 @@ export default async function HomePage() {
         <h2 className="mb-6 text-center text-lg font-semibold tracking-tight">What Our Customers Say</h2>
         <div className="grid gap-4 md:grid-cols-3">
           {TESTIMONIALS.map((t) => (
-            <div key={t.name} className="rounded-xl border bg-card p-5 transition hover:-translate-y-0.5 hover:shadow-card-hover">
-              <div className="mb-2 flex gap-0.5">
+            <div key={t.name} className="group rounded-xl border bg-card p-5 transition-all duration-300 hover:-translate-y-1.5 hover:border-brand/40 hover:shadow-card-hover">
+              <div className="mb-2 flex gap-0.5 transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3 origin-left">
                 {Array.from({ length: t.rating }).map((_, i) => (
-                  <Star key={i} className="size-3.5 fill-amber-400 text-amber-400" />
+                  <Star key={i} className="size-3.5 fill-amber-400 text-amber-400 transition-transform duration-200 group-hover:scale-125" style={{ transitionDelay: `${i * 40}ms` }} />
                 ))}
               </div>
               <p className="mb-3 text-[12.5px] leading-relaxed text-muted-foreground">&ldquo;{t.text}&rdquo;</p>
               <div className="flex items-center gap-2">
-                <span className="flex size-7 items-center justify-center rounded-full bg-brand-light text-[10px] font-semibold text-brand-deep">
+                <span className="flex size-7 items-center justify-center rounded-full bg-brand-light text-[10px] font-semibold text-brand-deep transition-transform duration-300 group-hover:scale-110">
                   {t.name.split(" ").map((n) => n[0]).join("")}
                 </span>
                 <div>
@@ -249,12 +248,15 @@ export default async function HomePage() {
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map((f) => (
-            <div key={f.title} className="flex gap-3 rounded-xl bg-muted/50 p-4 transition hover:bg-muted/80">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-light">
-                <f.icon className="size-4 text-brand-deep" />
+            <div
+              key={f.title}
+              className="group flex gap-3 rounded-xl border border-transparent bg-muted/50 p-4 transition-all duration-300 hover:-translate-y-1 hover:border-brand/30 hover:bg-card hover:shadow-card-hover"
+            >
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-light transition-all duration-300 group-hover:scale-110 group-hover:bg-brand-gradient group-hover:shadow-brand">
+                <f.icon className="size-4 text-brand-deep transition-colors duration-300 group-hover:text-white" />
               </span>
               <div>
-                <p className="text-[12.5px] font-semibold">{f.title}</p>
+                <p className="text-[12.5px] font-semibold transition-colors group-hover:text-brand-deep">{f.title}</p>
                 <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">{f.desc}</p>
               </div>
             </div>

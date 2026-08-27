@@ -73,7 +73,7 @@ export default async function AdminOrdersPage({
         </div>
       ) : null}
       <div className="rounded-xl border bg-card">
-        <OrdersManager initial={managerData} buildHref={buildHref} />
+        <OrdersManager initial={managerData} customerId={customerId} page={page} />
         <AdminPagination
           page={data.page}
           pages={data.pages}

@@ -70,8 +70,8 @@ export function CheckoutForm({ user }: { user: SessionUser | null }) {
           address,
           couponCode: cart.coupon?.code ?? null,
           useCashback,
-          guestName: guestInfo.name,
-          guestEmail: guestInfo.email,
+          guestName: guestInfo.name || undefined,
+          guestEmail: guestInfo.email || undefined,
         }),
       })
       const data = await res.json()

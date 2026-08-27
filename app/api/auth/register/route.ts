@@ -4,6 +4,7 @@ import { createSession, hashPassword } from "@/lib/auth"
 import dbConnect from "@/lib/db"
 import { User } from "@/lib/models"
 import { clientKey, rateLimit } from "@/lib/rate-limit"
+import { sendMail, welcomeEmail } from "@/lib/mailer"
 
 const registerSchema = z.object({
   name: z.string().trim().min(2).max(80),
@@ -43,6 +44,10 @@ export async function POST(request: NextRequest) {
     })
 
     await createSession(String(user._id))
+
+    const welcome = welcomeEmail({ name, homeUrl: request.nextUrl.origin })
+    await sendMail({ to: email, ...welcome })
+
     return NextResponse.json({ ok: true, role: user.role, name: user.name })
   } catch {
     return NextResponse.json({ error: "Registration failed" }, { status: 500 })

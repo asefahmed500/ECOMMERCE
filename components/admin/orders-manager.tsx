@@ -43,10 +43,12 @@ export interface OrdersManagerData {
 
 export function OrdersManager({
   initial,
-  buildHref,
+  customerId,
+  page,
 }: {
   initial: OrdersManagerData
-  buildHref: (next: { status?: string }) => string
+  customerId?: string
+  page: number
 }) {
   const router = useRouter()
   const [data, setData] = React.useState(initial)
@@ -57,6 +59,14 @@ export function OrdersManager({
   }
   const [query, setQuery] = React.useState("")
   const [updating, setUpdating] = React.useState<string | null>(null)
+
+  function statusHref(status: string) {
+    const params = new URLSearchParams()
+    if (status !== "all") params.set("status", status)
+    if (customerId) params.set("customer", customerId)
+    if (page > 1) params.set("page", String(page))
+    return `/admin/orders${params.size ? `?${params.toString()}` : ""}`
+  }
 
   const filtered = data.orders.filter((o) =>
     [o.orderNo, o.customerName].some((f) => f.toLowerCase().includes(query.toLowerCase()))
@@ -97,7 +107,7 @@ export function OrdersManager({
           {PIPELINES.map((p) => (
             <Link
               key={p.key}
-              href={buildHref({ status: p.key })}
+              href={statusHref(p.key)}
               className={cn(
                 "flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[12.5px] font-medium transition",
                 data.activeStatus === p.key

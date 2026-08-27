@@ -3,6 +3,7 @@ import { z } from "zod"
 import { guardResponse, requireApiAdmin } from "@/lib/auth"
 import dbConnect from "@/lib/db"
 import { Notification, Order, Product, User, canTransition, type OrderStatus } from "@/lib/models"
+import { orderStatusEmail, sendMail } from "@/lib/mailer"
 
 const statusSchema = z.object({ status: z.string().min(1).max(20) })
 
@@ -63,6 +64,21 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/orders
       message: detail,
       orderId: order.orderNo,
     })
+
+    const buyer = order.user
+      ? await User.findById(order.user).select("name email").lean()
+      : null
+    const recipient = buyer?.email ?? order.guestEmail
+    if (recipient) {
+      const email = orderStatusEmail({
+        name: buyer?.name ?? order.customerName,
+        orderNo: order.orderNo,
+        status,
+        detail,
+        orderUrl: `${request.nextUrl.origin}${buyer ? `/account/orders/${order._id}` : "/catalog"}`,
+      })
+      await sendMail({ to: recipient, ...email })
+    }
 
     return NextResponse.json({ ok: true, status, payment: order.payment })
   } catch (err) {

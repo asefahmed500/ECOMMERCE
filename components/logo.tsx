@@ -37,7 +37,7 @@ export function Logo({
   size?: "sm" | "md"
   className?: string
 }) {
-  const box = size === "md" ? "size-8" : "size-7"
+  const box = size === "md" ? "size-9" : "size-7"
   return (
     <Link href={href} className={cn("group flex items-center gap-2.5 overflow-hidden", className)}>
       <LogoMark className={cn(box, "transition group-hover:scale-105")} />
@@ -45,7 +45,7 @@ export function Logo({
         <span
           className={cn(
             "font-extrabold tracking-tight text-foreground",
-            size === "md" ? "text-[15px]" : "text-sm"
+            size === "md" ? "text-xl" : "text-sm"
           )}
         >
           ecomi

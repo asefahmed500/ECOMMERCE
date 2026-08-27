@@ -63,6 +63,13 @@ const CUSTOMER_NAV: NavItem[] = [
   { href: "/catalog", label: "Catalog", icon: LayoutGrid },
 ]
 
+const ACCOUNT_NAV: NavItem[] = [
+  { href: "/account", label: "Account Overview", icon: User, exact: true },
+  { href: "/account/orders", label: "My Orders", icon: Package },
+  { href: "/account/wishlist", label: "Saved Wishlist", icon: Heart },
+  { href: "/catalog", label: "Continue Shopping", icon: LayoutGrid },
+]
+
 const ADMIN_NAV: NavItem[] = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
   { href: "/admin/products", label: "Products CRUD", icon: Boxes },
@@ -113,13 +120,13 @@ function TopNavLink({ item }: { item: NavItem }) {
       href={item.href}
       title={item.label}
       className={cn(
-        "flex items-center gap-2 rounded-full px-3 py-2 text-[13.5px] font-medium whitespace-nowrap transition sm:px-3.5",
+        "flex items-center gap-2 rounded-full px-3.5 py-2.5 text-[15px] font-medium whitespace-nowrap transition",
         active
           ? "bg-brand-light font-semibold text-brand-deep"
           : "text-muted-foreground hover:bg-muted hover:text-foreground"
       )}
     >
-      <Icon className={cn("size-4 shrink-0", active && "text-brand")} />
+      <Icon className={cn("size-4.5 shrink-0", active && "text-brand")} />
       <span className="hidden lg:inline">{item.label}</span>
     </Link>
   )
@@ -131,7 +138,7 @@ function SidebarBody({
   authed,
   onNavigate,
 }: {
-  variant: "customer" | "admin"
+  variant: "customer" | "admin" | "account"
   collapsed: boolean
   authed?: boolean
   onNavigate?: () => void
@@ -145,7 +152,7 @@ function SidebarBody({
     router.refresh()
   }
 
-  const items = variant === "admin" ? ADMIN_NAV : CUSTOMER_NAV
+  const items = variant === "admin" ? ADMIN_NAV : variant === "account" ? ACCOUNT_NAV : CUSTOMER_NAV
   return (
     <div className="flex h-full flex-col overflow-y-auto px-3 pb-4">
       <div
@@ -160,13 +167,13 @@ function SidebarBody({
 
       {!collapsed ? (
         <p className="px-2.5 pb-1 text-[9.5px] font-semibold tracking-widest text-muted-foreground/70 uppercase">
-          {variant === "admin" ? "Admin Controls" : "Shop & Explore"}
+          {variant === "admin" ? "Admin Controls" : "My Account"}
         </p>
       ) : null}
       <NavLinks items={items} collapsed={collapsed} onNavigate={onNavigate} />
 
       <div className="mt-auto pt-4">
-        {variant === "customer" && !collapsed ? (
+        {variant !== "admin" && !collapsed ? (
           <div className="mb-2 rounded-lg border border-[#FFDCCB] bg-brand-light px-3 py-2.5 text-center">
             <Headphones className="mx-auto mb-1 size-4 text-brand-deep" />
             <p className="text-[11px] font-semibold text-brand-deep">24/7 ecomi Care</p>
@@ -311,7 +318,7 @@ export function StoreShell({
   children,
 }: {
   user: SessionUser | null
-  variant?: "customer" | "admin"
+  variant?: "customer" | "admin" | "account"
   children: React.ReactNode
 }) {
   const [collapsed, setCollapsed] = React.useState(false)
@@ -324,7 +331,7 @@ export function StoreShell({
   const [searching, setSearching] = React.useState(false)
   const searchBoxRef = React.useRef<HTMLDivElement>(null)
 
-  const showSidebar = variant === "admin"
+  const showSidebar = variant !== "customer"
 
   React.useEffect(() => {
     setCollapsed(localStorage.getItem("ecomi_sidebar_collapsed") === "1") // eslint-disable-line
@@ -449,6 +456,7 @@ export function StoreShell({
 
       {/* Main column */}
       <div className={cn("flex min-h-screen flex-col transition-[padding] duration-200", showSidebar ? (collapsed ? "lg:pl-16" : "lg:pl-52") : "")}>
+        {variant === "customer" ? (
         <header className="sticky top-0 z-30">
           {/* Main navbar â€” links left / logo center / links + actions right */}
           <div className="border-b bg-background/90 backdrop-blur">
@@ -581,10 +589,26 @@ export function StoreShell({
             </form>
           </div>
         </header>
+        ) : (
+          <header className="sticky top-0 z-30 border-b bg-background/90 backdrop-blur lg:hidden">
+            <div className="flex h-12 items-center justify-between px-4">
+              <button
+                type="button"
+                onClick={() => setMobileOpen(true)}
+                aria-label="Open menu"
+                className="rounded-lg border p-2"
+              >
+                <Menu className="size-4" />
+              </button>
+              <Logo />
+              <span className="size-9" aria-hidden />
+            </div>
+          </header>
+        )}
 
         <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 lg:px-8">{children}</main>
 
-        <SiteFooter />
+        {variant === "customer" ? <SiteFooter /> : null}
       </div>
 
       {variant === "customer" ? <CartSheet /> : null}

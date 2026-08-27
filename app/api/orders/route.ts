@@ -6,6 +6,7 @@ import dbConnect from "@/lib/db"
 import { Coupon, Counter, Notification, Order, Product, User } from "@/lib/models"
 import { getStoreSettings } from "@/lib/queries"
 import { toOrderDTO } from "@/lib/serialize"
+import { orderConfirmedEmail, sendMail } from "@/lib/mailer"
 
 const CASHBACK_RATES: Record<string, number> = {
   "VIP Gold": 0.05,
@@ -31,8 +32,14 @@ const placeOrderSchema = z.object({
   address: addressSchema,
   couponCode: z.string().trim().max(40).nullable().optional(),
   useCashback: z.boolean().optional().default(false),
-  guestName: z.string().trim().max(80).optional(),
-  guestEmail: z.string().trim().toLowerCase().email().optional(),
+  guestName: z
+    .union([z.literal(""), z.string().trim().max(80)])
+    .optional()
+    .transform((v) => v || undefined),
+  guestEmail: z
+    .union([z.literal(""), z.string().trim().toLowerCase().email()])
+    .optional()
+    .transform((v) => v || undefined),
 })
 
 export async function GET() {
@@ -288,6 +295,19 @@ export async function POST(request: NextRequest) {
         orderId: orderNo,
       },
     ])
+
+    const confirmRecipient = sessionUser?.email ?? body.guestEmail
+    if (confirmRecipient) {
+      const email = orderConfirmedEmail({
+        name: customerName,
+        orderNo,
+        trackingNo,
+        items,
+        total,
+        orderUrl: `${request.nextUrl.origin}${isGuest ? "/catalog" : `/account/orders/${order._id}`}`,
+      })
+      await sendMail({ to: confirmRecipient, ...email })
+    }
 
     return NextResponse.json(
       {
