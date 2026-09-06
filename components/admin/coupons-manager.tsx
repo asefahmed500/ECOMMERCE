@@ -14,6 +14,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { toast } from "@/components/ui/toast"
 import { cn } from "@/lib/utils"
 import type { CouponDTO } from "@/lib/types"
@@ -34,6 +44,9 @@ export function CouponsManager({ initial }: { initial: CouponDTO[] }) {
   }
   const [open, setOpen] = React.useState(false)
   const [pending, setPending] = React.useState(false)
+  const [deleteTarget, setDeleteTarget] = React.useState<CouponDTO | null>(null)
+  const [deleting, setDeleting] = React.useState(false)
+  const [toggling, setToggling] = React.useState<string | null>(null)
   const [copied, setCopied] = React.useState<string | null>(null)
   const [form, setForm] = React.useState({ code: "", percent: "10", minOrder: "0", maxUses: "", expiry: "", description: "" })
 
@@ -72,29 +85,49 @@ export function CouponsManager({ initial }: { initial: CouponDTO[] }) {
   }
 
   async function toggleActive(c: CouponDTO) {
-    const res = await fetch(`/api/coupons/${c.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ active: !c.active }),
-    })
-    if (!res.ok) {
-      toast.add({ title: "Update failed", type: "error" })
-      return
+    if (toggling) return
+    setToggling(c.id)
+    try {
+      const res = await fetch(`/api/coupons/${c.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active: !c.active }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.add({ title: data.error ?? "Update failed", type: "error" })
+        return
+      }
+      setCoupons((prev) => prev.map((x) => (x.id === c.id ? { ...x, active: !c.active } : x)))
+      toast.add({ title: `${c.code} ${c.active ? "deactivated" : "activated"}`, type: "success" })
+      router.refresh()
+    } catch {
+      toast.add({ title: "Network error — voucher status unchanged", type: "error" })
+    } finally {
+      setToggling(null)
     }
-    setCoupons((prev) => prev.map((x) => (x.id === c.id ? { ...x, active: !c.active } : x)))
-    toast.add({ title: `${c.code} ${c.active ? "deactivated" : "activated"}`, type: "success" })
-    router.refresh()
   }
 
-  async function remove(c: CouponDTO) {
-    const res = await fetch(`/api/coupons/${c.id}`, { method: "DELETE" })
-    if (!res.ok) {
-      toast.add({ title: "Delete failed", type: "error" })
-      return
+  async function confirmDelete() {
+    if (!deleteTarget || deleting) return
+    const target = deleteTarget
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/coupons/${target.id}`, { method: "DELETE" })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.add({ title: data.error ?? "Delete failed", type: "error" })
+        return
+      }
+      setDeleteTarget(null)
+      setCoupons((prev) => prev.filter((x) => x.id !== target.id))
+      toast.add({ title: `Voucher ${target.code} deleted`, type: "success" })
+      router.refresh()
+    } catch {
+      toast.add({ title: "Network error — the voucher was not deleted", type: "error" })
+    } finally {
+      setDeleting(false)
     }
-    setCoupons((prev) => prev.filter((x) => x.id !== c.id))
-    toast.add({ title: `Voucher ${c.code} deleted`, type: "success" })
-    router.refresh()
   }
 
   function copyCode(code: string) {
@@ -144,11 +177,21 @@ export function CouponsManager({ initial }: { initial: CouponDTO[] }) {
                   {copied === c.code ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
                   {copied === c.code ? "Copied" : "Copy"}
                 </Button>
-                <Button variant="secondary" size="sm" onClick={() => toggleActive(c)}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={toggling === c.id || deleting}
+                  onClick={() => toggleActive(c)}
+                >
                   <Power className="size-3.5" />
-                  {c.active ? "Disable" : "Enable"}
+                  {toggling === c.id ? "Saving…" : c.active ? "Disable" : "Enable"}
                 </Button>
-                <Button variant="destructive" size="sm" onClick={() => remove(c)}>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={deleting || toggling === c.id}
+                  onClick={() => setDeleteTarget(c)}
+                >
                   <Trash2 className="size-3.5" />
                   Delete
                 </Button>
@@ -244,6 +287,7 @@ export function CouponsManager({ initial }: { initial: CouponDTO[] }) {
                   id="c-expiry"
                   required
                   type="date"
+                  min={new Date().toISOString().slice(0, 10)}
                   value={form.expiry}
                   onChange={(e) => setForm((f) => ({ ...f, expiry: e.target.value }))}
                   className="h-9"
@@ -273,6 +317,28 @@ export function CouponsManager({ initial }: { initial: CouponDTO[] }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete voucher confirmation */}
+      <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(v) => !v && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-sm">Delete voucher code?</AlertDialogTitle>
+            <AlertDialogDescription className="text-xs">
+              Promo voucher &quot;{deleteTarget?.code}&quot; will be permanently deleted and can no longer be redeemed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={deleting}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              {deleting ? "Deleting…" : "Delete Voucher"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

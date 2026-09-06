@@ -15,6 +15,7 @@ export interface CartItem {
 export interface AppliedCoupon {
   code: string
   percent: number
+  minOrder: number
 }
 
 export const FREE_SHIPPING_THRESHOLD = 50
@@ -32,12 +33,13 @@ interface CartContextValue {
   clear: () => void
   applyCoupon: (code: string) => Promise<{ ok: boolean; message: string }>
   clearCoupon: () => void
-  subtotal: number
-  discount: number
-  shipping: number
-  total: number
-  count: number
-}
+   subtotal: number
+   discount: number
+   shipping: number
+   total: number
+   count: number
+   couponValid: boolean
+ }
 
 const CartContext = React.createContext<CartContextValue | null>(null)
 
@@ -64,6 +66,21 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       // ignore corrupted storage
     }
     setHydrated(true)
+
+    // Listen for storage events from other tabs to keep multiple tabs in sync
+    function handleStorage(e: StorageEvent) {
+      if (e.key !== STORAGE_KEY || !e.newValue) return
+      try {
+        const parsed = JSON.parse(e.newValue)
+        if (Array.isArray(parsed.items)) setItems(parsed.items)
+        setCoupon(parsed.coupon ?? null)
+      } catch {
+        // ignore malformed update
+      }
+    }
+
+    window.addEventListener("storage", handleStorage)
+    return () => window.removeEventListener("storage", handleStorage)
   }, [])
 
   React.useEffect(() => {
@@ -91,12 +108,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const add = React.useCallback(
     (item: Omit<CartItem, "qty">, qty = 1, silent = false) => {
+      const safeQty = Math.max(1, Math.min(999, Math.floor(Number(qty)) || 1))
       setItems((prev) => {
         const existing = prev.find((i) => i.id === item.id)
         if (existing) {
-          return prev.map((i) => (i.id === item.id ? { ...i, qty: i.qty + qty } : i))
+          return prev.map((i) => (i.id === item.id ? { ...i, qty: Math.min(999, i.qty + safeQty) } : i))
         }
-        return [...prev, { ...item, qty }]
+        return [...prev, { ...item, qty: safeQty }]
       })
       if (!silent) {
         toast.add({ title: "Added to cart", description: item.name, type: "success" })
@@ -106,8 +124,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   )
 
   const setQty = React.useCallback((id: string, qty: number) => {
+    const safeQty = Math.floor(Number(qty))
     setItems((prev) =>
-      qty <= 0 ? prev.filter((i) => i.id !== id) : prev.map((i) => (i.id === id ? { ...i, qty } : i))
+      !Number.isFinite(safeQty) || safeQty <= 0
+        ? prev.filter((i) => i.id !== id)
+        : prev.map((i) => (i.id === id ? { ...i, qty: Math.min(999, safeQty) } : i))
     )
   }, [])
 
@@ -136,7 +157,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           setCoupon(null)
           return { ok: false, message: data.message ?? "Invalid promo code" }
         }
-        setCoupon({ code: trimmed, percent: data.percent })
+        setCoupon({ code: data.code ?? trimmed, percent: data.percent, minOrder: Number(data.minOrder) || 0 })
         return { ok: true, message: `Promo applied — ${data.percent}% off!` }
       } catch {
         return { ok: false, message: "Could not validate code. Try again." }
@@ -147,17 +168,23 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const clearCoupon = React.useCallback(() => setCoupon(null), [])
 
-  const { subtotal, discount, shipping, total, count } = React.useMemo(() => {
-    const sub = items.reduce((s, i) => s + i.price * i.qty, 0)
-    const disc = coupon ? sub * (coupon.percent / 100) : 0
-    const after = sub - disc
+  // Mirror the server's money math exactly (2dp rounding on the discount) so
+  // the total the shopper approves is the total the order API charges.
+  const round2 = (n: number) => Math.round(n * 100) / 100
+
+  const { subtotal, discount, shipping, total, count, couponValid } = React.useMemo(() => {
+    const sub = round2(items.reduce((s, i) => s + i.price * i.qty, 0))
+    const valid = Boolean(coupon) && sub >= (coupon?.minOrder ?? 0)
+    const disc = coupon && valid ? round2(sub * (coupon.percent / 100)) : 0
+    const after = round2(sub - disc)
     const ship = after > freeShippingThreshold || after === 0 ? 0 : shippingFee
     return {
       subtotal: sub,
       discount: disc,
       shipping: ship,
-      total: after + ship,
+      total: round2(after + ship),
       count: items.reduce((s, i) => s + i.qty, 0),
+      couponValid: valid,
     }
   }, [items, coupon, freeShippingThreshold, shippingFee])
 
@@ -179,8 +206,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       shipping,
       total,
       count,
+      couponValid,
     }),
-    [items, coupon, open, hydrated, add, setQty, remove, clear, applyCoupon, clearCoupon, subtotal, discount, shipping, total, count]
+    [items, coupon, open, hydrated, add, setQty, remove, clear, applyCoupon, clearCoupon, subtotal, discount, shipping, total, count, couponValid]
   )
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>

@@ -82,6 +82,7 @@ export function ProductsManager({ initial, openNew }: { initial: ProductDTO[]; o
   const [form, setForm] = React.useState<FormState>(EMPTY)
   const [pending, setPending] = React.useState(false)
   const [deleteTarget, setDeleteTarget] = React.useState<ProductDTO | null>(null)
+  const [deleting, setDeleting] = React.useState(false)
 
   function openAdd() {
     setForm(EMPTY)
@@ -122,7 +123,7 @@ export function ProductsManager({ initial, openNew }: { initial: ProductDTO[]; o
             ? `-${Math.round((1 - Number(form.price) / Number(form.oldPrice)) * 100)}%`
             : null,
         stock: Number(form.stock),
-        image: form.image,
+        image: form.image.trim() || undefined,
         description: form.description,
         isFeatured: form.isFeatured,
       }
@@ -149,17 +150,25 @@ export function ProductsManager({ initial, openNew }: { initial: ProductDTO[]; o
   }
 
   async function confirmDelete() {
-    if (!deleteTarget) return
+    if (!deleteTarget || deleting) return
     const target = deleteTarget
-    setDeleteTarget(null)
-    const res = await fetch(`/api/products/${target.id}`, { method: "DELETE" })
-    if (!res.ok) {
-      toast.add({ title: "Delete failed", type: "error" })
-      return
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/products/${target.id}`, { method: "DELETE" })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.add({ title: data.error ?? "Delete failed", type: "error" })
+        return
+      }
+      setDeleteTarget(null)
+      setProducts((prev) => prev.filter((p) => p.id !== target.id))
+      toast.add({ title: `Product deleted: ${target.name}`, type: "success" })
+      router.refresh()
+    } catch {
+      toast.add({ title: "Network error — the product was not deleted", type: "error" })
+    } finally {
+      setDeleting(false)
     }
-    setProducts((prev) => prev.filter((p) => p.id !== target.id))
-    toast.add({ title: `Product deleted: ${target.name}`, type: "success" })
-    router.refresh()
   }
 
   function exportCsv() {
@@ -174,7 +183,7 @@ export function ProductsManager({ initial, openNew }: { initial: ProductDTO[]; o
     a.download = "ecomi-products.csv"
     a.click()
     URL.revokeObjectURL(url)
-    toast.add({ title: "Product catalog exported as CSV", type: "success" })
+    toast.add({ title: `Exported ${products.length} products (current page) as CSV`, type: "success" })
   }
 
   return (
@@ -471,13 +480,19 @@ export function ProductsManager({ initial, openNew }: { initial: ProductDTO[]; o
           <AlertDialogHeader>
             <AlertDialogTitle className="text-sm">Delete product?</AlertDialogTitle>
             <AlertDialogDescription className="text-xs">
-              &quot;{deleteTarget?.name}&quot; will be permanently removed from the catalog.
+              &quot;{deleteTarget?.name}&quot; ({deleteTarget?.sku}) will be permanently removed from the catalog and
+              from every customer&apos;s wishlist. Past orders keep their historical copy of this product. This action
+              cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-white hover:bg-destructive/90">
-              Delete
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={deleting}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              {deleting ? "Deleting…" : `Delete Product`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

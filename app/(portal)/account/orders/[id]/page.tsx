@@ -136,7 +136,7 @@ export default async function OrderDetailPage({
             </div>
           </div>
 
-          <div className="mt-6 flex flex-wrap gap-2">
+          <div className="mt-6 flex flex-wrap gap-2 print:hidden">
             <Button render={<Link href="/account/orders" />} nativeButton={false} variant="secondary" size="sm">
               <Package className="size-3.5" />
               All Orders

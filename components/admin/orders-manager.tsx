@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Search, Truck, Package } from "lucide-react"
+import { Eye, Search, Truck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -13,12 +13,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Separator } from "@/components/ui/separator"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { OrderStatusBadge, PaymentBadge } from "@/components/status-badge"
+import { OrderTimeline } from "@/components/order-timeline"
 import { toast } from "@/components/ui/toast"
 import { cn } from "@/lib/utils"
 import type { OrderDTO } from "@/lib/types"
-import { formatCurrency, formatDate } from "@/lib/format"
+import { formatCurrency, formatDate, formatDateTime } from "@/lib/format"
 
 const PIPELINES = [
   { key: "all", label: "All Orders" },
@@ -45,10 +64,12 @@ export function OrdersManager({
   initial,
   customerId,
   page,
+  initialQuery = "",
 }: {
   initial: OrdersManagerData
   customerId?: string
   page: number
+  initialQuery?: string
 }) {
   const router = useRouter()
   const [data, setData] = React.useState(initial)
@@ -57,8 +78,10 @@ export function OrdersManager({
     setPrevInitial(initial)
     setData(initial)
   }
-  const [query, setQuery] = React.useState("")
+  const [query, setQuery] = React.useState(initialQuery)
   const [updating, setUpdating] = React.useState<string | null>(null)
+  const [cancelTarget, setCancelTarget] = React.useState<OrderDTO | null>(null)
+  const [detailOrder, setDetailOrder] = React.useState<OrderDTO | null>(null)
 
   function statusHref(status: string) {
     const params = new URLSearchParams()
@@ -68,11 +91,12 @@ export function OrdersManager({
     return `/admin/orders${params.size ? `?${params.toString()}` : ""}`
   }
 
+  const q = query.trim().toLowerCase()
   const filtered = data.orders.filter((o) =>
-    [o.orderNo, o.customerName].some((f) => f.toLowerCase().includes(query.toLowerCase()))
+    !q || [o.orderNo ?? "", o.customerName ?? ""].some((f) => f.toLowerCase().includes(q))
   )
 
-  async function updateStatus(id: string, status: string) {
+  async function performStatusUpdate(id: string, status: string) {
     setUpdating(id)
     try {
       const res = await fetch(`/api/orders/${id}/status`, {
@@ -98,6 +122,13 @@ export function OrdersManager({
     } finally {
       setUpdating(null)
     }
+  }
+
+  async function confirmCancel() {
+    if (!cancelTarget || updating) return
+    const target = cancelTarget
+    setCancelTarget(null)
+    await performStatusUpdate(target.id, "Cancelled")
   }
 
   return (
@@ -157,9 +188,13 @@ export function OrdersManager({
             return (
               <TableRow key={o.id}>
                 <TableCell>
-                  <Link href={`/account/orders/${o.id}`} className="text-xs font-semibold hover:text-brand-deep">
+                  <button
+                    type="button"
+                    onClick={() => setDetailOrder(o)}
+                    className="text-xs font-semibold hover:text-brand-deep hover:underline"
+                  >
                     {o.orderNo}
-                  </Link>
+                  </button>
                 </TableCell>
                 <TableCell className="text-xs">
                   {o.customerName}
@@ -182,10 +217,21 @@ export function OrdersManager({
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1.5">
+                    <Button
+                      variant="secondary"
+                      size="icon-xs"
+                      aria-label={`View details for ${o.orderNo}`}
+                      onClick={() => setDetailOrder(o)}
+                    >
+                      <Eye className="size-3" />
+                    </Button>
                     <Select
                       value={o.status}
                       onValueChange={(v) => {
-                        if (v && v !== o.status) updateStatus(o.id, v)
+                        if (v && v !== o.status) {
+                          if (v === "Cancelled") setCancelTarget(o)
+                          else performStatusUpdate(o.id, v)
+                        }
                       }}
                       disabled={updating === o.id || options.length === 0}
                     >
@@ -207,14 +253,6 @@ export function OrdersManager({
                         )}
                       </SelectContent>
                     </Select>
-                    <Button
-                      variant="secondary"
-                      size="icon-xs"
-                      aria-label="Print"
-                      onClick={() => window.print()}
-                    >
-                      <Package className="size-3" />
-                    </Button>
                   </div>
                 </TableCell>
               </TableRow>
@@ -229,6 +267,137 @@ export function OrdersManager({
           ) : null}
         </TableBody>
       </Table>
+
+      {/* Cancel confirmation — destructive, financial action gets an explicit dialog */}
+      <AlertDialog
+        open={Boolean(cancelTarget)}
+        onOpenChange={(v) => {
+          if (!v) setCancelTarget(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-sm">Cancel order {cancelTarget?.orderNo}?</AlertDialogTitle>
+            <AlertDialogDescription className="text-xs">
+              This will cancel {cancelTarget?.customerName ? `"${cancelTarget.customerName}"'s` : "this"} order of{" "}
+              <strong>{formatCurrency(cancelTarget?.total ?? 0)}</strong>. The purchased items will be returned to
+              stock, the customer&apos;s coupon will be released for reuse
+              {cancelTarget?.payment === "Paid" ? ", and the payment will be marked as refunded" : ""}. The customer
+              is notified automatically. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep Order</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmCancel}
+              disabled={Boolean(updating)}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              {updating ? "Cancelling…" : "Cancel Order"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Order details */}
+      <Dialog open={Boolean(detailOrder)} onOpenChange={(v) => !v && setDetailOrder(null)}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-sm">Order {detailOrder?.orderNo}</DialogTitle>
+            <DialogDescription className="text-[11px]">
+              Placed {detailOrder ? formatDateTime(detailOrder.createdAt) : ""} ·{" "}
+              {detailOrder?.userId ? "Registered customer" : "Guest order"}
+            </DialogDescription>
+          </DialogHeader>
+          {detailOrder ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <OrderStatusBadge status={detailOrder.status} />
+                <PaymentBadge payment={detailOrder.payment} />
+              </div>
+
+              <OrderTimeline status={detailOrder.status} />
+
+              {detailOrder.status !== "Cancelled" ? null : (
+                <p className="rounded-lg bg-destructive/10 px-3 py-2 text-[11px] font-medium text-destructive">
+                  This order was cancelled — stock was restored and financial totals exclude it.
+                </p>
+              )}
+
+              <div className="space-y-2">
+                {detailOrder.items.map((item, idx) => (
+                  <div key={`${item.productId}-${idx}`} className="flex items-center justify-between gap-3 text-xs">
+                    <span className="min-w-0 flex-1 truncate">{item.name} ×{item.qty}</span>
+                    <span className="font-semibold tabular-nums">{formatCurrency(item.price * item.qty)}</span>
+                  </div>
+                ))}
+              </div>
+
+              <Separator />
+
+              <div className="space-y-1 text-xs">
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Subtotal</span>
+                  <span className="text-foreground">{formatCurrency(detailOrder.subtotal)}</span>
+                </div>
+                {detailOrder.discount > 0 ? (
+                  <div className="flex justify-between text-success">
+                    <span>Promo {detailOrder.couponCode}</span>
+                    <span>-{formatCurrency(detailOrder.discount)}</span>
+                  </div>
+                ) : null}
+                {detailOrder.cashbackApplied > 0 ? (
+                  <div className="flex justify-between text-success">
+                    <span>Cashback redeemed</span>
+                    <span>-{formatCurrency(detailOrder.cashbackApplied)}</span>
+                  </div>
+                ) : null}
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Shipping</span>
+                  <span className="text-foreground">
+                    {detailOrder.shipping === 0 ? "Free" : formatCurrency(detailOrder.shipping)}
+                  </span>
+                </div>
+                <div className="flex justify-between border-t pt-1.5 text-sm font-semibold">
+                  <span>Total</span>
+                  <span>{formatCurrency(detailOrder.total)}</span>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="grid gap-3 text-xs sm:grid-cols-2">
+                <div>
+                  <p className="mb-1 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
+                    Ship To
+                  </p>
+                  <p className="font-medium">{detailOrder.customerName}</p>
+                  <p className="text-muted-foreground">{detailOrder.shippingAddress.line1 || "—"}</p>
+                  <p className="text-muted-foreground">
+                    {[detailOrder.shippingAddress.city, detailOrder.shippingAddress.country]
+                      .filter(Boolean)
+                      .join(", ") || "—"}
+                  </p>
+                  {detailOrder.guestEmail ? (
+                    <p className="mt-1 text-muted-foreground">{detailOrder.guestEmail}</p>
+                  ) : null}
+                </div>
+                <div>
+                  <p className="mb-1 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
+                    Delivery
+                  </p>
+                  <p className="text-muted-foreground">{detailOrder.courier}</p>
+                  {detailOrder.trackingNo ? (
+                    <p className="font-mono text-[11px]">{detailOrder.trackingNo}</p>
+                  ) : (
+                    <p className="text-muted-foreground">No tracking number yet</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -40,7 +40,7 @@ const SOCIALS = [
 
 export function SiteFooter() {
   return (
-    <footer className="border-t bg-card">
+    <footer className="border-t bg-card print:hidden">
       {/* Wordmark centerpiece */}
       <div className="overflow-hidden px-6 pt-14 pb-10 text-center lg:pt-20">
         <LogoMark className="mx-auto mb-5 size-14 lg:size-16" />

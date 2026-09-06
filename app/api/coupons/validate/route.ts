@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const parsed = validateSchema.safeParse(await request.json())
+    const parsed = validateSchema.safeParse(await request.json().catch(() => null))
     if (!parsed.success) {
       return NextResponse.json({ valid: false, message: "Enter a promo code" }, { status: 400 })
     }
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    return NextResponse.json({ valid: true, percent: coupon.percent, code: coupon.code })
+    return NextResponse.json({ valid: true, percent: coupon.percent, code: coupon.code, minOrder: coupon.minOrder ?? 0 })
   } catch {
     return NextResponse.json({ valid: false, message: "Could not validate code" }, { status: 500 })
   }

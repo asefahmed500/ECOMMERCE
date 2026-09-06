@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Award, Search, Send } from "lucide-react"
+import { ArrowDown, ArrowUp, Award, Search } from "lucide-react"
 import Link from "next/link"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -8,8 +8,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { StatusBadge } from "@/components/status-badge"
 import { PageHeader } from "@/components/page-header"
 import { AdminPagination } from "@/components/admin/pagination"
+import { CustomersExportButton } from "@/components/admin/customers-export-button"
 import { getCustomerStats } from "@/lib/queries"
 import { formatCurrency, formatDate } from "@/lib/format"
+import { initials } from "@/lib/serialize"
 
 export const metadata = { title: "Customers · ecomi Admin" }
 
@@ -63,12 +65,7 @@ export default async function AdminCustomersPage({
     <div>
       <PageHeader
         title="Customer CRM & VIP Retention"
-        actions={
-          <Button className="bg-brand-gradient text-white shadow-brand" type="button">
-            <Send className="size-3.5" />
-            Dispatch VIP Offers
-          </Button>
-        }
+        actions={<CustomersExportButton rows={data.customers} />}
       />
 
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -141,12 +138,7 @@ export default async function AdminCustomersPage({
                   <div className="flex items-center gap-2.5">
                     <Avatar className="size-7.5">
                       <AvatarFallback className="bg-brand-gradient text-[10px] font-semibold text-white">
-                        {c.name
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")
-                          .slice(0, 2)
-                          .toUpperCase()}
+                        {initials(c.name)}
                       </AvatarFallback>
                     </Avatar>
                     <span className="text-xs font-semibold">{c.name}</span>

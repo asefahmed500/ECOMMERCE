@@ -1,4 +1,4 @@
-import { Check, Truck, PackageCheck, Package } from "lucide-react"
+import { Ban, Check, Truck, PackageCheck, Package } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const STEPS = [
@@ -9,6 +9,17 @@ const STEPS = [
 ]
 
 export function OrderTimeline({ status }: { status: string }) {
+  if (status === "Cancelled") {
+    return (
+      <div className="mt-4 flex items-center gap-2.5 rounded-lg bg-destructive/10 px-3.5 py-2.5">
+        <Ban className="size-4 shrink-0 text-destructive" />
+        <p className="text-[11.5px] font-medium text-destructive">
+          This order was cancelled. Any reserved items were returned to stock.
+        </p>
+      </div>
+    )
+  }
+
   const currentIdx = STEPS.findIndex((s) => s.key === status)
 
   return (

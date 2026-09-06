@@ -15,7 +15,14 @@ const SESSION_DAYS = 7
 const BCRYPT_ROUNDS = 12
 
 function getSecret() {
-  const secret = process.env.AUTH_SECRET
+  if (!process.env.AUTH_SECRET) {
+    try {
+      process.loadEnvFile?.()
+    } catch {
+      // ignore
+    }
+  }
+  const secret = process.env.AUTH_SECRET || process.env["\uFEFFAUTH_SECRET"]
   if (!secret) {
     throw new Error("Please define the AUTH_SECRET environment variable inside .env")
   }

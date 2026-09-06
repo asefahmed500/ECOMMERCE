@@ -1,6 +1,14 @@
 import mongoose from "mongoose"
 
-const MONGODB_URI = process.env.MONGODB_URI
+if (!process.env.MONGODB_URI) {
+  try {
+    process.loadEnvFile?.()
+  } catch {
+    // ignore if .env file is missing or in Next.js runtime
+  }
+}
+
+const MONGODB_URI = process.env.MONGODB_URI || process.env["\uFEFFMONGODB_URI"]
 
 if (!MONGODB_URI) {
   throw new Error("Please define the MONGODB_URI environment variable inside .env")

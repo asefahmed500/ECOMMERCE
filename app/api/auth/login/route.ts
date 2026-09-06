@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const parsed = loginSchema.safeParse(await request.json())
+    const parsed = loginSchema.safeParse(await request.json().catch(() => null))
     if (!parsed.success) {
       return NextResponse.json({ error: "Enter a valid email and password" }, { status: 400 })
     }

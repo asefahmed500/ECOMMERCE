@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
   if (guardResponse(guard)) return guard
 
   try {
-    const parsed = couponSchema.safeParse(await request.json())
+    const parsed = couponSchema.safeParse(await request.json().catch(() => null))
     if (!parsed.success) {
       return NextResponse.json(
         { error: parsed.error.issues[0]?.message ?? "Invalid coupon data" },
@@ -35,6 +35,10 @@ export async function POST(request: NextRequest) {
       )
     }
     const body = parsed.data
+
+    if (body.expiry.getTime() < Date.now()) {
+      return NextResponse.json({ error: "Expiry date must be in the future" }, { status: 400 })
+    }
 
     await dbConnect()
     const coupon = await Coupon.create({

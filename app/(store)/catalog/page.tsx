@@ -76,6 +76,7 @@ export default async function CatalogPage({
             <nav className="mt-8 flex items-center justify-center gap-2" aria-label="Catalog pages">
               <Link
                 aria-label="Previous page"
+                aria-disabled={result.page <= 1}
                 href={pageHref(Math.max(1, result.page - 1))}
                 className={cn(
                   "flex size-9 items-center justify-center rounded-full border transition",
@@ -107,6 +108,7 @@ export default async function CatalogPage({
               })}
               <Link
                 aria-label="Next page"
+                aria-disabled={result.page >= result.pages}
                 href={pageHref(Math.min(result.pages, result.page + 1))}
                 className={cn(
                   "flex size-9 items-center justify-center rounded-full border transition",

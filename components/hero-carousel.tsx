@@ -16,7 +16,8 @@ export function HeroCarousel({ products }: { products: ProductDTO[] }) {
   }, [products.length])
 
   if (products.length === 0) return null
-  const current = products[idx]
+  const safeIdx = idx % products.length
+  const current = products[safeIdx]
 
   return (
     <section className="relative mb-10 grid min-h-[360px] overflow-hidden rounded-2xl bg-hero-gradient shadow-card-hover md:min-h-[400px] md:grid-cols-[1.2fr_0.8fr]">
@@ -52,7 +53,7 @@ export function HeroCarousel({ products }: { products: ProductDTO[] }) {
               key={i}
               type="button"
               aria-label={`Slide ${i + 1}`}
-              className={cn("h-1.5 rounded-full transition-all", i === idx ? "w-5 bg-white" : "size-1.5 bg-white/40")}
+              className={cn("h-1.5 rounded-full transition-all", i === safeIdx ? "w-5 bg-white" : "size-1.5 bg-white/40")}
               onClick={() => setIdx(i)}
             />
           ))}

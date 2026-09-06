@@ -91,6 +91,7 @@ const orderSchema = new Schema(
     discount: { type: Number, default: 0 },
     couponCode: { type: String, default: null },
     cashbackApplied: { type: Number, default: 0 },
+    cashbackEarned: { type: Number, default: 0 },
     shipping: { type: Number, default: 0 },
     total: { type: Number, required: true },
     payment: { type: String, enum: ["Paid", "Refunded"], default: "Paid" },
@@ -208,6 +209,18 @@ function model<T>(name: string, schema: Schema<T>): Model<T> {
   return mongoose.model<T>(name, schema)
 }
 
+const newsletterSubscriberSchema = new Schema(
+  {
+    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    source: { type: String, default: "footer-form" },
+  },
+  { timestamps: true }
+)
+
+export type NewsletterSubscriberDoc = InferSchemaType<typeof newsletterSubscriberSchema> & {
+  _id: mongoose.Types.ObjectId
+}
+
 export const Product = model<ProductDoc>("Product", productSchema as Schema<ProductDoc>)
 export const User = model<UserDoc>("User", userSchema as Schema<UserDoc>)
 export const Order = model<OrderDoc>("Order", orderSchema as Schema<OrderDoc>)
@@ -216,3 +229,12 @@ export const Notification = model<NotificationDoc>("Notification", notificationS
 export const Wishlist = model<WishlistDoc>("Wishlist", wishlistSchema as Schema<WishlistDoc>)
 export const Setting = model<SettingDoc>("Setting", settingSchema as Schema<SettingDoc>)
 export const Counter = model<CounterDoc>("Counter", counterSchema as unknown as Schema<CounterDoc>)
+export const NewsletterSubscriber = model<NewsletterSubscriberDoc>(
+  "NewsletterSubscriber",
+  newsletterSubscriberSchema as Schema<NewsletterSubscriberDoc>
+)
+
+export function isValidObjectId(id: unknown): id is string {
+  if (typeof id !== "string") return false
+  return mongoose.isValidObjectId(id)
+}

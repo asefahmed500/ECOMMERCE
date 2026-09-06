@@ -126,6 +126,10 @@ export function CartSheet() {
               </div>
               {promoMsg ? (
                 <p className={`text-[11px] ${promoMsg.ok ? "text-success" : "text-destructive"}`}>{promoMsg.text}</p>
+              ) : cart.coupon && !cart.couponValid ? (
+                <p className="text-[11px] text-destructive">
+                  {cart.coupon.code} requires a ${cart.coupon.minOrder.toFixed(2)} minimum — add more items to use it.
+                </p>
               ) : cart.coupon ? (
                 <p className="text-[11px] text-success">{cart.coupon.code} applied — {cart.coupon.percent}% off</p>
               ) : null}

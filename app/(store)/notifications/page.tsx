@@ -57,7 +57,7 @@ export default async function NotificationsPage() {
                   <div className="mt-1.5 flex items-center justify-between">
                     <span className="text-[10.5px] text-muted-foreground/70">{formatDateTime(n.createdAt)}</span>
                     {n.orderId ? (
-                      <Link href="/account/orders" className="text-[11px] font-semibold text-brand-deep hover:underline">
+                      <Link href={`/account/orders/${encodeURIComponent(n.orderId)}`} className="text-[11px] font-semibold text-brand-deep hover:underline">
                         Track order →
                       </Link>
                     ) : null}

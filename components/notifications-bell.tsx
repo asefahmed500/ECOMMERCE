@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils"
 import type { NotificationDTO } from "@/lib/types"
 import { formatDateTime } from "@/lib/format"
 
-export function NotificationsBell({ authed }: { authed: boolean }) {
+export function NotificationsBell({ authed, isAdmin }: { authed: boolean; isAdmin?: boolean }) {
   const [items, setItems] = React.useState<NotificationDTO[]>([])
   const [unread, setUnread] = React.useState(0)
   const prevUnread = React.useRef<number | null>(null)
@@ -53,9 +53,36 @@ export function NotificationsBell({ authed }: { authed: boolean }) {
   }, [authed])
 
   async function markAllRead() {
+    const prevItems = items
+    const prevUnreadCount = unread
     setUnread(0)
     setItems((prev) => prev.map((n) => ({ ...n, read: true })))
-    await fetch("/api/notifications", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: "{}" })
+    try {
+      const res = await fetch("/api/notifications", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      })
+      if (!res.ok) throw new Error()
+    } catch {
+      // Roll back the optimistic update so the badge stays truthful.
+      setItems(prevItems)
+      setUnread(prevUnreadCount)
+      toast.add({ title: "Could not mark notifications as read", type: "error" })
+    }
+  }
+
+  function openNotification(n: NotificationDTO) {
+    if (!n.read) {
+      // Fire-and-forget; the optimistic UI already highlights it as read.
+      setItems((prev) => prev.map((x) => (x.id === n.id ? { ...x, read: true } : x)))
+      setUnread((u) => Math.max(0, u - 1))
+      fetch("/api/notifications", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: n.id }),
+      }).catch(() => {})
+    }
   }
 
   if (!authed) return null
@@ -96,7 +123,16 @@ export function NotificationsBell({ authed }: { authed: boolean }) {
             items.slice(0, 8).map((n) => (
               <Link
                 key={n.id}
-                href={n.orderId ? `/account/orders?highlight=${n.orderId}` : "/notifications"}
+                href={
+                  n.orderId
+                    ? isAdmin
+                      ? `/admin/orders?q=${encodeURIComponent(n.orderId)}`
+                      : `/account/orders/${encodeURIComponent(n.orderId)}`
+                    : isAdmin
+                      ? "/admin/orders"
+                      : "/notifications"
+                }
+                onClick={() => openNotification(n)}
                 className={cn(
                   "block border-b px-3 py-2.5 transition last:border-b-0 hover:bg-muted/60",
                   !n.read && "bg-brand-light/60"
@@ -120,8 +156,11 @@ export function NotificationsBell({ authed }: { authed: boolean }) {
           )}
         </div>
         <DropdownMenuSeparator />
-        <Link href="/notifications" className="block px-3 py-2 text-center text-xs font-medium text-brand-deep hover:underline">
-          View all notifications
+        <Link
+          href={isAdmin ? "/admin/orders" : "/notifications"}
+          className="block px-3 py-2 text-center text-xs font-medium text-brand-deep hover:underline"
+        >
+          {isAdmin ? "View all orders" : "View all notifications"}
         </Link>
       </DropdownMenuContent>
     </DropdownMenu>

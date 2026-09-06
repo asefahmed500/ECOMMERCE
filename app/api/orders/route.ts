@@ -7,6 +7,7 @@ import { Coupon, Counter, Notification, Order, Product, User } from "@/lib/model
 import { getStoreSettings } from "@/lib/queries"
 import { toOrderDTO } from "@/lib/serialize"
 import { orderConfirmedEmail, sendMail } from "@/lib/mailer"
+import { clientKey, rateLimit } from "@/lib/rate-limit"
 
 const CASHBACK_RATES: Record<string, number> = {
   "VIP Gold": 0.05,
@@ -55,14 +56,14 @@ export async function GET() {
 // Atomic sequential reservation: a shared counter row guarantees unique ORD-n
 // values even under concurrent checkouts (unique index as backstop).
 async function reserveOrderNo() {
-  let counter = await Counter.findByIdAndUpdate(ORDER_COUNTER_ID, { $inc: { seq: 1 } }, { new: true })
+  let counter = await Counter.findByIdAndUpdate(ORDER_COUNTER_ID, { $inc: { seq: 1 } }, { returnDocument: "after" })
   if (counter) return `ORD-${counter.seq}`
   try {
     await Counter.create({ _id: ORDER_COUNTER_ID, seq: FIRST_ORDER_NO - 1 })
   } catch (err) {
     if (!(err instanceof Error && err.message.includes("E11000"))) throw err
   }
-  counter = await Counter.findByIdAndUpdate(ORDER_COUNTER_ID, { $inc: { seq: 1 } }, { new: true })
+  counter = await Counter.findByIdAndUpdate(ORDER_COUNTER_ID, { $inc: { seq: 1 } }, { returnDocument: "after" })
   return `ORD-${counter?.seq ?? FIRST_ORDER_NO}`
 }
 
@@ -93,10 +94,18 @@ async function releaseCoupon(code: string, identity: string) {
 }
 
 export async function POST(request: NextRequest) {
+  const limit = rateLimit(clientKey(request, "place-order"), 15, 60_000)
+  if (!limit.ok) {
+    return NextResponse.json(
+      { error: `Too many order attempts. Try again in ${limit.retryAfter}s.` },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfter) } }
+    )
+  }
+
   const session = await getSession()
 
   try {
-    const parsed = placeOrderSchema.safeParse(await request.json())
+    const parsed = placeOrderSchema.safeParse(await request.json().catch(() => null))
     if (!parsed.success) {
       const issue = parsed.error.issues[0]
       const field = issue?.path?.[0]
@@ -197,10 +206,7 @@ export async function POST(request: NextRequest) {
 
     const cashbackAvailable = sessionUser?.cashback ?? 0
     const cashbackApplied = !isGuest && body.useCashback ? Math.min(cashbackAvailable, afterDiscount + shipping) : 0
-    const total = Math.max(0, afterDiscount + shipping - cashbackApplied)
-    if (total <= 0 && cashbackApplied === 0) {
-      return NextResponse.json({ error: "Invalid order total" }, { status: 400 })
-    }
+    const total = Math.max(0, Math.round((afterDiscount + shipping - cashbackApplied) * 100) / 100)
 
     const orderNo = await reserveOrderNo()
     const trackingNo = `TRK-${Math.floor(80000000 + Math.random() * 19999999)}`
@@ -252,6 +258,7 @@ export async function POST(request: NextRequest) {
         discount,
         couponCode: appliedCoupon,
         cashbackApplied,
+        cashbackEarned,
         shipping,
         total,
         status: "Processing",

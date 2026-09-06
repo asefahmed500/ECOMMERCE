@@ -44,6 +44,7 @@ export function toOrderDTO(o: OrderDoc): OrderDTO {
     discount: o.discount ?? 0,
     couponCode: o.couponCode ?? null,
     cashbackApplied: (o as OrderDoc & { cashbackApplied?: number }).cashbackApplied ?? 0,
+    cashbackEarned: (o as OrderDoc & { cashbackEarned?: number }).cashbackEarned ?? 0,
     shipping: o.shipping ?? 0,
     total: o.total,
     payment: o.payment,
@@ -85,13 +86,14 @@ export function toNotificationDTO(n: NotificationDoc): NotificationDTO {
   }
 }
 
-export function initials(name: string) {
-  return name
-    .split(" ")
+export function initials(name?: string | null) {
+  if (!name || typeof name !== "string") return "U"
+  const letters = name
+    .trim()
+    .split(/\s+/)
     .map((n) => n[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase()
+    .filter(Boolean)
+  return (letters.slice(0, 2).join("") || "U").toUpperCase()
 }
 
 export type { UserDoc }

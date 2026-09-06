@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/page-header"
 import { getCustomerSession } from "@/lib/auth"
 import { getUserOrders } from "@/lib/queries"
 import { formatCurrency, formatDate } from "@/lib/format"
+import { initials } from "@/lib/serialize"
 
 export const metadata = { title: "My Account · ecomi" }
 
@@ -30,12 +31,7 @@ export default async function AccountPage() {
             <div className="mb-4 flex items-center gap-3.5">
               <Avatar className="size-12">
                 <AvatarFallback className="bg-brand-gradient text-base font-semibold text-white">
-                  {user.name
-                    .split(" ")
-                    .map((n) => n[0])
-                    .join("")
-                    .slice(0, 2)
-                    .toUpperCase()}
+                  {initials(user.name)}
                 </AvatarFallback>
               </Avatar>
               <div>

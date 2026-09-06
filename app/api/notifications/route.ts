@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { guardResponse, requireApiUser } from "@/lib/auth"
 import dbConnect from "@/lib/db"
-import { Notification } from "@/lib/models"
+import { Notification, isValidObjectId } from "@/lib/models"
 import { toNotificationDTO } from "@/lib/serialize"
 
 export async function GET() {
@@ -25,7 +25,10 @@ export async function PATCH(request: NextRequest) {
     await dbConnect()
     const filter = guard.role === "admin" ? { forAdmin: true } : { user: guard.id }
 
-    if (body.id && typeof body.id === "string" && body.id.length <= 64) {
+    if (body.id) {
+      if (!isValidObjectId(body.id)) {
+        return NextResponse.json({ error: "Invalid notification ID" }, { status: 400 })
+      }
       await Notification.updateOne({ ...filter, _id: body.id }, { read: true })
     } else {
       await Notification.updateMany(filter, { read: true })

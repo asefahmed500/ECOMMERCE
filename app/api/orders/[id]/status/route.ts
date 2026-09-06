@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { guardResponse, requireApiAdmin } from "@/lib/auth"
 import dbConnect from "@/lib/db"
-import { Notification, Order, Product, User, canTransition, type OrderStatus } from "@/lib/models"
+import { Coupon, Notification, Order, Product, User, canTransition, isValidObjectId, type OrderStatus } from "@/lib/models"
 import { orderStatusEmail, sendMail } from "@/lib/mailer"
 
 const statusSchema = z.object({ status: z.string().min(1).max(20) })
@@ -12,8 +12,12 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/orders
   if (guardResponse(guard)) return guard
 
   const { id } = await ctx.params
+  if (!isValidObjectId(id)) {
+    return NextResponse.json({ error: "Order not found" }, { status: 404 })
+  }
+
   try {
-    const parsed = statusSchema.safeParse(await request.json())
+    const parsed = statusSchema.safeParse(await request.json().catch(() => null))
     if (!parsed.success || !["Processing", "Shipped", "Delivered", "Cancelled"].includes(parsed.data.status)) {
       return NextResponse.json({ error: "Invalid status" }, { status: 400 })
     }
@@ -32,21 +36,57 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/orders
       )
     }
 
+    const previousStatus = order.status
     const wasPaid = order.payment === "Paid"
+    const newPayment = status === "Cancelled" && wasPaid ? "Refunded" : order.payment
+
+    // Atomic conditional update guarantees only one concurrent call succeeds
+    const updated = await Order.findOneAndUpdate(
+      { _id: id, status: previousStatus },
+      {
+        $set: { status: status as OrderStatus, payment: newPayment },
+        $push: { history: { status, at: new Date() } },
+      },
+      { returnDocument: "after" }
+    )
+
+    if (!updated) {
+      return NextResponse.json({ error: "Order was already updated concurrently" }, { status: 409 })
+    }
 
     if (status === "Cancelled") {
+      // 1. Restore product inventory
       for (const item of order.items ?? []) {
         await Product.updateOne({ _id: item.product }, { $inc: { stock: item.qty } })
       }
-      if (wasPaid) order.payment = "Refunded"
-      if (order.cashbackApplied > 0 && order.user) {
-        await User.updateOne({ _id: order.user }, { $inc: { cashback: order.cashbackApplied } })
+
+      // 2. Adjust cashback: refund applied cashback AND deduct unearned cashback (prevent infinite exploit)
+      if (order.user) {
+        const userDoc = await User.findById(order.user)
+        if (userDoc) {
+          const earned = (order as { cashbackEarned?: number }).cashbackEarned ?? 0
+          const applied = order.cashbackApplied ?? 0
+          const netCashbackAdjustment = applied - earned
+          if (netCashbackAdjustment !== 0) {
+            const newCashback = Math.max(0, (userDoc.cashback ?? 0) + netCashbackAdjustment)
+            await User.updateOne({ _id: order.user }, { cashback: Math.round(newCashback * 100) / 100 })
+          }
+        }
+      }
+
+      // 3. Release coupon so customer can use it again if staff cancelled
+      if (order.couponCode) {
+        const buyer = order.user ? await User.findById(order.user).select("email").lean() : null
+        const couponIdentity = buyer?.email ?? (order.guestEmail ? `email:${order.guestEmail}` : null)
+        await Coupon.updateOne(
+          { code: order.couponCode },
+          {
+            $inc: { uses: -1 },
+            ...(couponIdentity ? { $pull: { usedBy: couponIdentity } } : {}),
+          }
+        )
       }
     }
-
-    order.status = status as OrderStatus
-    order.history.push({ status, at: new Date() })
-    await order.save()
 
     let detail: string
     if (status === "Shipped") detail = `Tracking ${order.trackingNo} via ${order.courier}.`
@@ -80,7 +120,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/orders
       await sendMail({ to: recipient, ...email })
     }
 
-    return NextResponse.json({ ok: true, status, payment: order.payment })
+    return NextResponse.json({ ok: true, status, payment: updated.payment })
   } catch (err) {
     console.error("Order status update error:", err)
     return NextResponse.json({ error: "Could not update order status" }, { status: 500 })

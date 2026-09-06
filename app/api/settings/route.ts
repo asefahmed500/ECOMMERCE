@@ -14,7 +14,10 @@ export async function PATCH(request: NextRequest) {
   if (guardResponse(guard)) return guard
 
   try {
-    const body = await request.json()
+    const body = await request.json().catch(() => null)
+    if (!body || typeof body !== "object") {
+      return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
+    }
     const updates: Record<string, unknown> = {}
     if (body.brandName !== undefined) {
       const brandName = String(body.brandName).trim().slice(0, 80)
@@ -39,7 +42,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     await dbConnect()
-    await Setting.findOneAndUpdate({ key: "store" }, updates, { new: true, upsert: true })
+    await Setting.findOneAndUpdate({ key: "store" }, updates, { returnDocument: "after", upsert: true })
     return NextResponse.json({ settings: await getStoreSettings(), defaults: DEFAULT_SETTINGS })
   } catch {
     return NextResponse.json({ error: "Could not save settings" }, { status: 500 })

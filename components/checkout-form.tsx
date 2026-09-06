@@ -31,6 +31,7 @@ export function CheckoutForm({ user }: { user: SessionUser | null }) {
   const cart = useCart()
   const router = useRouter()
   const [pending, setPending] = React.useState(false)
+  const [orderSucceeded, setOrderSucceeded] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [useCashback, setUseCashback] = React.useState(false)
   const [guestInfo, setGuestInfo] = React.useState({ name: "", email: "" })
@@ -48,10 +49,10 @@ export function CheckoutForm({ user }: { user: SessionUser | null }) {
   const finalTotal = Math.max(0, cart.total - (useCashback ? cashbackValue : 0))
 
   React.useEffect(() => {
-    if (cart.hydrated && cart.items.length === 0 && !pending && !placed) {
+    if (cart.hydrated && cart.items.length === 0 && !pending && !placed && !orderSucceeded) {
       router.replace("/catalog")
     }
-  }, [cart.hydrated, cart.items.length, pending, placed, router])
+  }, [cart.hydrated, cart.items.length, pending, placed, orderSucceeded, router])
 
   async function placeOrder(e: React.FormEvent) {
     e.preventDefault()
@@ -60,15 +61,13 @@ export function CheckoutForm({ user }: { user: SessionUser | null }) {
     setError(null)
 
     try {
-      await new Promise((r) => setTimeout(r, 900))
-
       const res = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           items: cart.items.map((i) => ({ productId: i.id, qty: i.qty })),
           address,
-          couponCode: cart.coupon?.code ?? null,
+          couponCode: cart.coupon && cart.couponValid ? cart.coupon.code : null,
           useCashback,
           guestName: guestInfo.name || undefined,
           guestEmail: guestInfo.email || undefined,
@@ -80,6 +79,7 @@ export function CheckoutForm({ user }: { user: SessionUser | null }) {
         return
       }
 
+      setOrderSucceeded(true)
       cart.clear()
       toast.add({
         title: "Order placed successfully!",
@@ -328,7 +328,12 @@ export function CheckoutForm({ user }: { user: SessionUser | null }) {
             <span>Subtotal</span>
             <span className="text-foreground">{formatCurrency(cart.subtotal)}</span>
           </div>
-          {cart.discount > 0 ? (
+          {cart.coupon && !cart.couponValid ? (
+            <div className="rounded-lg bg-destructive/10 px-2.5 py-1.5 text-[11px] font-medium text-destructive">
+              Promo {cart.coupon.code} requires a ${cart.coupon.minOrder.toFixed(2)} minimum — add more items or it
+              won&apos;t be applied to this order.
+            </div>
+          ) : cart.discount > 0 ? (
             <div className="flex justify-between text-success">
               <span>Promo {cart.coupon?.code}</span>
               <span>-{formatCurrency(cart.discount)}</span>

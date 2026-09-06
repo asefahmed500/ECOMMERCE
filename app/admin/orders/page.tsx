@@ -1,11 +1,10 @@
 import Link from "next/link"
-import { Printer, X } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { X } from "lucide-react"
 import { PageHeader } from "@/components/page-header"
 import { OrdersManager, type OrdersManagerData } from "@/components/admin/orders-manager"
 import { AdminPagination } from "@/components/admin/pagination"
 import { getOrdersPage } from "@/lib/queries"
-import { User } from "@/lib/models"
+import { User, isValidObjectId } from "@/lib/models"
 import dbConnect from "@/lib/db"
 
 export const metadata = { title: "Fulfillment · ecomi Admin" }
@@ -17,7 +16,10 @@ export default async function AdminOrdersPage({
 }) {
   const sp = await searchParams
   const status = typeof sp.status === "string" ? sp.status : "all"
-  const customerId = typeof sp.customer === "string" ? sp.customer : undefined
+  const q = typeof sp.q === "string" ? sp.q : ""
+  // Validate before it reaches Mongo — an arbitrary ?customer= string would
+  // otherwise CastError inside the query and 500 the whole page.
+  const customerId = typeof sp.customer === "string" && isValidObjectId(sp.customer) ? sp.customer : undefined
   const page = Number(typeof sp.page === "string" ? sp.page : "") || 1
 
   const [data] = await Promise.all([
@@ -34,6 +36,7 @@ export default async function AdminOrdersPage({
     const params = new URLSearchParams()
     const s = next.status ?? status
     if (s && s !== "all") params.set("status", s)
+    if (q) params.set("q", q)
     const c = next.customer !== undefined ? next.customer : customerId
     if (c) params.set("customer", c)
     const p = next.page ?? page
@@ -52,12 +55,6 @@ export default async function AdminOrdersPage({
       <PageHeader
         title="Orders & Fulfillment Pipelines"
         description="Status updates instantly notify the customer and advance their tracking timeline."
-        actions={
-          <Button variant="secondary" size="sm">
-            <Printer className="size-3.5" />
-            Print Labels
-          </Button>
-        }
       />
       {customerId ? (
         <div className="mb-4 flex items-center gap-2 rounded-lg border border-brand-light bg-brand-light/40 px-3 py-2 text-xs">
@@ -73,7 +70,7 @@ export default async function AdminOrdersPage({
         </div>
       ) : null}
       <div className="rounded-xl border bg-card">
-        <OrdersManager initial={managerData} customerId={customerId} page={page} />
+        <OrdersManager initial={managerData} customerId={customerId} page={page} initialQuery={q} />
         <AdminPagination
           page={data.page}
           pages={data.pages}

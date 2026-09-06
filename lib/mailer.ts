@@ -13,6 +13,10 @@ function getTransporter(): Transporter | null {
       port: Number(EMAIL_PORT ?? 587),
       secure: EMAIL_SECURE === "true" || Number(EMAIL_PORT) === 465,
       auth: { user: EMAIL_USER, pass: EMAIL_PASS },
+      // Never let a hung SMTP server stall an order/register response.
+      connectionTimeout: 8_000,
+      greetingTimeout: 8_000,
+      socketTimeout: 12_000,
     })
   }
   return cached

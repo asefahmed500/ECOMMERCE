@@ -46,6 +46,7 @@ export interface OrderDTO {
   discount: number
   couponCode: string | null
   cashbackApplied: number
+  cashbackEarned: number
   shipping: number
   total: number
   payment: string

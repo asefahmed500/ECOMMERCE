@@ -49,10 +49,32 @@ export function InventoryManager({ initial }: { initial: ProductDTO[] }) {
 
   async function restockAll() {
     const low = products.filter((p) => p.stock < 15)
-    for (const p of low) {
-      await restock(p.id)
+    if (low.length === 0) {
+      toast.add({ title: "All inventory items are currently well-stocked", type: "info" })
+      return
     }
-    toast.add({ title: `Suppliers notified — restocked ${low.length} low items`, type: "success" })
+    setBusy("all")
+    let successCount = 0
+    try {
+      for (const p of low) {
+        const res = await fetch(`/api/products/${p.id}/restock`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ amount: 50 }),
+        })
+        if (res.ok) {
+          const data = await res.json()
+          setProducts((prev) => prev.map((x) => (x.id === p.id ? { ...x, stock: data.stock } : x)))
+          successCount++
+        }
+      }
+      toast.add({ title: `Suppliers notified — restocked ${successCount} items (+50 each)`, type: "success" })
+      router.refresh()
+    } catch {
+      toast.add({ title: "Restock error", type: "error" })
+    } finally {
+      setBusy(null)
+    }
   }
 
   return (
@@ -62,7 +84,7 @@ export function InventoryManager({ initial }: { initial: ProductDTO[] }) {
           West Hub Primary Storage · <span className="font-semibold text-foreground">{lowCount}</span> items below
           reorder level
         </p>
-        <Button onClick={restockAll} className="bg-brand-gradient text-white shadow-brand" size="sm">
+        <Button onClick={restockAll} disabled={busy !== null} className="bg-brand-gradient text-white shadow-brand" size="sm">
           <RefreshCw className="size-3.5" />
           Restock All Low Items
         </Button>

@@ -15,7 +15,7 @@ const productSchema = z.object({
   oldPrice: z.number().min(0).nullable().optional(),
   sale: z.string().trim().max(20).nullable().optional(),
   stock: z.number().int().min(0).max(100_000),
-  image: z.string().trim().url().optional(),
+  image: z.union([z.literal(""), z.string().trim().url()]).optional().transform((v) => v || undefined),
   swatches: z.array(z.string().trim().regex(/^#[0-9a-fA-F]{3,8}$/)).max(6).optional(),
   description: z.string().trim().max(2000).optional(),
   isFeatured: z.boolean().optional(),
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
   if (guardResponse(guard)) return guard
 
   try {
-    const parsed = productSchema.safeParse(await request.json())
+    const parsed = productSchema.safeParse(await request.json().catch(() => null))
     if (!parsed.success) {
       const issue = parsed.error.issues[0]
       const field = issue?.path?.[0]

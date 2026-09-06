@@ -4,6 +4,7 @@ import { Coupon, Notification, Order, Product, Setting, User, Wishlist } from "@
 import { toCouponDTO, toOrderDTO, toProductDTO } from "@/lib/serialize"
 import type { CouponDTO, CustomerStatDTO, OrderDTO, ProductDTO, StoreSettingsDTO } from "@/lib/types"
 import type { PipelineStage } from "mongoose"
+import mongoose from "mongoose"
 
 export function escapeRegex(input: string) {
   return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
@@ -359,17 +360,30 @@ export function buildProductSearchCond(rawQuery: string): Record<string, unknown
   if (tokens.length === 0) return null
 
   const fields = ["name", "sub", "description", "sku", "category"] as const
-  return {
-    $and: tokens.map((rawToken) => {
+  const tokenClauses = tokens
+    .map((rawToken) => {
       const token = rawToken.toLowerCase().replace(/[^a-z0-9-]/g, "")
-      const variants = [token, ...(SEARCH_SYNONYMS[token] ?? [])]
+      const variants = [token, ...(SEARCH_SYNONYMS[token] ?? [])].filter(Boolean)
+      if (variants.length === 0) {
+        const rawEscaped = escapeRegex(rawToken.slice(0, 30))
+        return rawEscaped
+          ? {
+              $or: fields.map((field) => ({
+                [field]: { $regex: rawEscaped, $options: "i" },
+              })),
+            }
+          : null
+      }
       return {
         $or: fields.map((field) => ({
           [field]: { $regex: variants.map(escapeRegex).join("|"), $options: "i" },
         })),
       }
-    }),
-  }
+    })
+    .filter(Boolean)
+
+  if (tokenClauses.length === 0) return null
+  return { $and: tokenClauses }
 }
 
 export async function getProductsPage(
@@ -405,6 +419,7 @@ export async function getProducts(filter: { q?: string; category?: string } = {}
 }
 
 export async function getProduct(id: string): Promise<ProductDTO | null> {
+  if (!id || typeof id !== "string" || !mongoose.isValidObjectId(id)) return null
   await dbConnect()
   const product = await Product.findById(id).lean()
   return product ? toProductDTO(product as never) : null
@@ -431,8 +446,11 @@ export async function getUserOrders(userId: string): Promise<OrderDTO[]> {
 }
 
 export async function getOrder(id: string): Promise<OrderDTO | null> {
+  if (!id || typeof id !== "string") return null
   await dbConnect()
-  const order = await Order.findById(id).lean()
+  const order = mongoose.isValidObjectId(id)
+    ? await Order.findById(id).lean()
+    : await Order.findOne({ orderNo: id }).lean()
   return order ? toOrderDTO(order as never) : null
 }
 

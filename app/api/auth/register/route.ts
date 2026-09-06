@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { createSession, hashPassword } from "@/lib/auth"
 import dbConnect from "@/lib/db"
-import { User } from "@/lib/models"
+import { Order, User } from "@/lib/models"
 import { clientKey, rateLimit } from "@/lib/rate-limit"
 import { sendMail, welcomeEmail } from "@/lib/mailer"
 
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const parsed = registerSchema.safeParse(await request.json())
+    const parsed = registerSchema.safeParse(await request.json().catch(() => null))
     if (!parsed.success) {
       const message = parsed.error.issues[0]?.message ?? "All fields are required"
       return NextResponse.json({ error: message }, { status: 400 })
@@ -42,6 +42,9 @@ export async function POST(request: NextRequest) {
       passwordHash,
       role: "customer",
     })
+
+    // Automatically claim and link past guest orders placed with this email
+    await Order.updateMany({ user: null, guestEmail: email }, { $set: { user: user._id } })
 
     await createSession(String(user._id))
 

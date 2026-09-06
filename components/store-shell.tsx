@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import * as React from "react"
 import Image from "next/image"
@@ -50,6 +50,7 @@ import { useCart } from "@/components/cart-provider"
 import { cn } from "@/lib/utils"
 import type { SessionUser, ProductDTO } from "@/lib/types"
 import { formatCurrency } from "@/lib/format"
+import { initials } from "@/lib/serialize"
 
 interface NavItem {
   href: string
@@ -222,7 +223,7 @@ function HeaderActions({ user, variant }: { user: SessionUser | null; variant: "
 
   return (
     <div className="flex items-center gap-1.5">
-      <NotificationsBell authed={authed} />
+      <NotificationsBell authed={authed} isAdmin={user?.role === "admin"} />
 
       {variant === "customer" ? (
         <button
@@ -252,12 +253,7 @@ function HeaderActions({ user, variant }: { user: SessionUser | null; variant: "
         >
               <Avatar className="size-6">
                 <AvatarFallback className="bg-brand-gradient text-[10px] font-semibold text-white">
-                  {user.name
-                    .split(" ")
-                    .map((n) => n[0])
-                    .join("")
-                    .slice(0, 2)
-                    .toUpperCase()}
+                  {initials(user.name)}
                 </AvatarFallback>
               </Avatar>
               <span className="hidden max-w-24 truncate text-xs font-medium md:inline">{user.name}</span>
@@ -409,7 +405,7 @@ export function StoreShell({
       {showSidebar ? (
         <aside
           className={cn(
-            "fixed inset-y-0 left-0 z-40 hidden flex-col border-r bg-sidebar transition-[width] duration-200 lg:flex",
+            "fixed inset-y-0 left-0 z-40 hidden flex-col border-r bg-sidebar transition-[width] duration-200 print:hidden lg:flex",
             collapsed ? "w-16" : "w-52"
           )}
         >
@@ -455,9 +451,9 @@ export function StoreShell({
       ) : null}
 
       {/* Main column */}
-      <div className={cn("flex min-h-screen flex-col transition-[padding] duration-200", showSidebar ? (collapsed ? "lg:pl-16" : "lg:pl-52") : "")}>
+      <div className={cn("flex min-h-screen flex-col transition-[padding] duration-200 print:pl-0!", showSidebar ? (collapsed ? "lg:pl-16" : "lg:pl-52") : "")}>
         {variant === "customer" ? (
-        <header className="sticky top-0 z-30">
+        <header className="sticky top-0 z-30 print:hidden">
           {/* Main navbar â€” links left / logo center / links + actions right */}
           <div className="border-b bg-background/90 backdrop-blur">
             <div className="mx-auto grid h-16 max-w-7xl grid-cols-[1fr_auto_1fr] items-center gap-2 px-4 lg:px-8">
@@ -590,7 +586,7 @@ export function StoreShell({
           </div>
         </header>
         ) : (
-          <header className="sticky top-0 z-30 border-b bg-background/90 backdrop-blur lg:hidden">
+          <header className="sticky top-0 z-30 border-b bg-background/90 backdrop-blur print:hidden lg:hidden">
             <div className="flex h-12 items-center justify-between px-4">
               <button
                 type="button"
@@ -606,7 +602,7 @@ export function StoreShell({
           </header>
         )}
 
-        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 lg:px-8">{children}</main>
+        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 print:max-w-none print:p-0 lg:px-8">{children}</main>
 
         {variant === "customer" ? <SiteFooter /> : null}
       </div>
