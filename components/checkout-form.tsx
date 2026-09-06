@@ -140,9 +140,18 @@ export function CheckoutForm({ user }: { user: SessionUser | null }) {
           it to follow your delivery.
         </p>
 
-        <Button render={<Link href="/catalog" />} nativeButton={false} className="mt-6 rounded-full bg-brand-gradient px-8 font-semibold text-white shadow-brand">
-          Continue Shopping
-        </Button>
+        <div className="mt-6 flex flex-wrap justify-center gap-2">
+          <Button
+            render={<Link href={`/track?order=${placed.orderNo}`} />}
+            nativeButton={false}
+            variant="secondary"
+          >
+            Track This Order
+          </Button>
+          <Button render={<Link href="/catalog" />} nativeButton={false} className="rounded-full bg-brand-gradient px-8 font-semibold text-white shadow-brand">
+            Continue Shopping
+          </Button>
+        </div>
       </div>
     )
   }

@@ -311,7 +311,7 @@ export async function POST(request: NextRequest) {
         trackingNo,
         items,
         total,
-        orderUrl: `${request.nextUrl.origin}${isGuest ? "/catalog" : `/account/orders/${order._id}`}`,
+        orderUrl: `${request.nextUrl.origin}${isGuest ? `/track?order=${orderNo}` : `/account/orders/${order._id}`}`,
       })
       await sendMail({ to: confirmRecipient, ...email })
     }

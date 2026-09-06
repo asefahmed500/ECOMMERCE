@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator"
 import { OrderStatusBadge, PaymentBadge } from "@/components/status-badge"
 import { OrderTimeline } from "@/components/order-timeline"
 import { PrintButton } from "@/components/print-button"
+import { CancelOrderButton } from "@/components/cancel-order-button"
 import { getCustomerSession } from "@/lib/auth"
 import { getOrder } from "@/lib/queries"
 import { formatCurrency, formatDateTime } from "@/lib/format"
@@ -142,6 +143,9 @@ export default async function OrderDetailPage({
               All Orders
             </Button>
             <PrintButton />
+            {order.status === "Processing" ? (
+              <CancelOrderButton orderId={order.id} orderNo={order.orderNo} total={order.total} />
+            ) : null}
             <Button
               render={<Link href="/catalog" />}
               nativeButton={false}

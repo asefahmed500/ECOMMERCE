@@ -25,6 +25,7 @@ const LINK_GROUPS = [
     label: "Company",
     links: [
       { href: "/", label: "Home" },
+      { href: "/track", label: "Track Order" },
       { href: "/login", label: "Sign In" },
       { href: "/register", label: "Create Account" },
     ],
